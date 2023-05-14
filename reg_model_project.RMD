@@ -1,0 +1,367 @@
+---
+title: "Modeling and prediction for movies"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(leaps)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `movies`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("movies.Rdata")
+```
+
+* * *
+
+## Part 1: Data
+- The data is a random sample collected from IMDB and Rotten Tomatoes on various
+movies and attributes associated with them.
+- The scope of inference is limited to generalization as this is an observational
+study, not a randomized controlled trial. No causal connections can be made from
+this analysis.
+
+* * *
+
+## Part 2: Research question
+- What attributes of a movie are most strongly associated with audience score?
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+#### Variables being considered
+Dependent Variable: 
+- audience_score
+
+Independent Variables: 
+- critics_score
+- critics_rating
+- title_type
+- genre
+- runtime
+- mpaa_rating
+- best_pic_nom
+- best_pic_win
+- best_actor_win
+- best_actress_win
+- best_dir_win
+- top200_box
+
+### Investigate the Dataset and Variables
+```{r}
+# Investigate the Dataset
+head(movies)
+tail(movies)
+str(movies)
+summary(movies)
+
+## Investigate the variables
+
+# Dependent Variable
+summary(movies$audience_score)
+hist(movies$audience_score)
+boxplot(movies$audience_score)
+scatter.smooth(movies$audience_score)
+qqnorm(movies$audience_score)
+qqline(movies$audience_score)
+
+# Independent Variables
+
+# critics_rating
+summary(movies$critics_rating)
+barplot(table(movies$critics_rating))
+
+# critics_score
+summary(movies$critics_score)
+hist(movies$critics_score)
+boxplot(movies$critics_score)
+scatter.smooth(movies$critics_score)
+qqnorm(movies$critics_score)
+qqline(movies$critics_score)
+
+# genre
+summary(movies$genre)
+barplot(table(movies$genre))
+
+# runtime
+summary(movies$runtime)
+hist(movies$runtime)
+boxplot(movies$runtime)
+scatter.smooth(movies$runtime)
+qqnorm(movies$runtime)
+qqline(movies$runtime)
+
+# mpaa_rating
+summary(movies$mpaa_rating)
+barplot(table(movies$mpaa_rating))
+
+# best_pic_nom
+summary(movies$best_pic_nom)
+barplot(table(movies$best_pic_nom))
+
+# best_pic_win
+summary(movies$best_pic_win)
+barplot(table(movies$best_pic_win))
+
+# best_actor_win
+summary(movies$best_actor_win)
+barplot(table(movies$best_actor_win))
+
+# best_actress_win
+summary(movies$best_actress_win)
+barplot(table(movies$best_actress_win))
+
+# best_dir_win
+summary(movies$best_dir_win)
+barplot(table(movies$best_dir_win))
+
+# top200_box
+summary(movies$top200_box)
+barplot(table(movies$top200_box))
+
+## Determine which Predictor (Independent) variables are most highly correlated
+```
+### Data Manipulation and Cleaning
+```{r}
+# Keep columns for analysis
+movies_trimmed <- movies[, c("audience_score","genre", "runtime","mpaa_rating","title_type", "critics_rating","critics_score","best_pic_nom","best_pic_win","best_actor_win","best_actress_win","best_dir_win","top200_box")]
+
+# Check rows with N/A's and remove if feasible
+num_rows_with_na <- sum(is.na(movies_trimmed))
+
+# Remove rows with N/As.
+movies_cleaned <- na.omit(movies_trimmed)
+
+# Analyze cleaned data
+str(movies_cleaned)
+```
+### Conditions
+
+#### (1) linear relationships between (numerical) x and y
+Check if each explanatory variable is linearly related to the response variable.
+
+‣ Each (numerical) explanatory variable linearly related to the response variable
+‣ Check using residuals plots (e vs. x)
+‣ Looking for a random scatter around 0
+‣ Instead of scatterplot of y vs. x: allows for considering the other variables 
+that are also in the model, and not just the bivariate relationship between a 
+given x and y.
+
+```{r}
+score_full = lm(audience_score ~ critics_rating + critics_score + title_type + genre
+                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win + top200_box, data = movies_cleaned)
+
+plot(score_full$residuals ~ movies_cleaned$critics_rating)
+plot(score_full$residuals ~ movies_cleaned$critics_score)
+plot(score_full$residuals ~ movies_cleaned$title_type)
+plot(score_full$residuals ~ movies_cleaned$genre)
+plot(score_full$residuals ~ movies_cleaned$runtime)
+plot(score_full$residuals ~ movies_cleaned$mpaa_rating)
+plot(score_full$residuals ~ movies_cleaned$best_pic_nom)
+plot(score_full$residuals ~ movies_cleaned$best_pic_win)
+plot(score_full$residuals ~ movies_cleaned$best_actor_win)
+plot(score_full$residuals ~ movies_cleaned$best_actress_win)
+plot(score_full$residuals ~ movies_cleaned$best_dir_win)
+plot(score_full$residuals ~ movies_cleaned$top200_box)
+
+```
+
+#### (2) nearly normal residuals with mean 0
+The plots below indicate a nearly normal distribution of residuals scattered
+around zero within the model.
+
+‣ Some residuals will be positive and some negative
+‣ On a residuals plot we look for random scatter of residuals around 0
+‣ This translates to a nearly normal distribution of residuals centered at 0
+‣ Check using histogram or normal probability plot
+
+```{r}
+hist(score_full$residuals)
+qqnorm(score_full$residuals)
+qqline(score_full$residuals)
+```
+#### (3) constant variability of residuals
+Constant variance is effectively met, with a slight convergence indicated nearing
+the right side of the residuals plot.
+
+‣ Residuals should be equally variable for low and high values of the predicted 
+response variable
+‣ Check using residuals plots of residuals vs. predicted (e vs. )
+‣ Residuals vs. predicted instead of residuals vs. x because it allows for 
+considering the entire model (with all explanatory variables) at once
+‣ Residuals randomly scattered in a band with a constant width around 0 (no 
+fan shape)
+‣ Also worthwhile to view absolute value of residuals vs. predicted to identify 
+unusual observations easily
+
+```{r}
+plot(score_full$residuals ~ score_full$fitted)
+plot(abs(score_full$residuals) ~ score_full$fitted)
+```
+#### (4) independent residuals
+It does not appear there is time series structure involved with this data. The
+data is a random sample of movies from IMBD and Rotten Tomatoes so independence should
+be satisfied.
+
+‣ Independent residuals → independent observations
+‣ If time series structure is suspected check using residuals vs. order of data 
+collection
+‣ If not, think about how the data are sampled
+
+```{r}
+plot(score_full$residuals)
+```
+
+
+* * *
+
+## Part 4: Modeling
+
+### Backwards Elimination - P-Value
+
+```{r}
+## Multiple Linear Regression Model
+
+# Full model
+score_full = lm(audience_score ~ critics_rating + critics_score + title_type + genre
+                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win + top200_box, data = movies)
+summary(score_full)
+
+# Model - best_dir_win
+score_mod_17 = lm(audience_score ~ critics_rating + critics_score + title_type + genre
+                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + top200_box, data = movies)
+summary(score_mod_17)
+
+# Model - title_type
+score_mod_18 = lm(audience_score ~ critics_rating + critics_score + genre
+                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + top200_box, data = movies)
+summary(score_mod_18)
+
+# Model - best_pic_win
+score_mod_19 = lm(audience_score ~ critics_rating + critics_score + genre
+                + runtime + mpaa_rating + best_pic_nom + best_actor_win + best_actress_win + top200_box, data = movies)
+summary(score_mod_19)
+
+# Model - mpaa_rating
+score_mod_20 = lm(audience_score ~ critics_rating + critics_score + genre
+                + runtime + best_pic_nom + best_actor_win + best_actress_win + top200_box, data = movies)
+summary(score_mod_20)
+
+# Model - top200_box
+score_mod_21 = lm(audience_score ~ critics_rating + critics_score + genre
+                + runtime + best_pic_nom + best_actor_win + best_actress_win, data = movies)
+summary(score_mod_21)
+
+# Model - best_actor_win
+score_mod_22 = lm(audience_score ~ critics_rating + critics_score + genre
+                + runtime + best_pic_nom + best_actress_win, data = movies)
+summary(score_mod_22)
+
+# Model - best_actress_win
+score_mod_23 = lm(audience_score ~ critics_rating + critics_score + genre
+                + runtime + best_pic_nom, data = movies)
+summary(score_mod_23)
+
+# Model - runtime *********************
+score_mod_24 = lm(audience_score ~ critics_rating + critics_score + genre
+                + best_pic_nom, data = movies)
+summary(score_mod_24)
+
+# Final Model
+score_mod_24 = lm(audience_score ~ critics_rating + critics_score + genre
+                + best_pic_nom, data = movies)
+summary(score_mod_24)
+```
+### Assess Collinearity of Predictor Variables in the Final Model
+The adjusted GVIF taking into account the DF indicates a relatively low indication
+of collinearity between predictor (independent) variables.
+However, the unadjusted GVIF is approaching the threshold of acceptable level of
+collinearity (5-10). 
+
+```{r}
+## Correlation matrix could not be used due to the presence of categorical variables
+
+# Calculate VIF for the predictors in the model
+vif_values <- vif(score_mod_24)
+
+# Print the VIF values
+print(vif_values)
+```
+
+* * *
+
+## Part 5: Prediction
+
+```{r}
+# Calculate confidence intervals for the coefficients
+conf_intervals <- confint(score_mod_24)
+
+# View the confidence intervals
+conf_intervals
+
+## Determine if the movie being used in the model exists within the dataset
+
+# Find rows where the string "Rogue" exists in the 'Name' column
+matching_rows <- movies[grepl("", movies$title, ignore.case = TRUE), ]
+
+# Print the matching rows
+matching_rows
+
+# Final Model
+score_mod_24 = lm(audience_score ~ critics_rating + critics_score + genre
+                + best_pic_nom, data = movies)
+summary(score_mod_24)
+
+## Acquire data from various movies released in 2016
+
+# Data from Rogue One
+rogue_one = data.frame(critics_rating = c("Fresh"), critics_score = c(84),
+                            genre = c("Action & Adventure"), best_pic_nom = c("yes"))
+# Data from Batman vs Superman
+batman_vs_superman = data.frame(critics_rating = c("Rotten"), critics_score = c(29),
+                            genre = c("Action & Adventure"), best_pic_nom = c("no"))
+# Data from X-Men: Apocalypse
+xmen_apocalypse = data.frame(critics_rating = c("Rotten"), critics_score = c(47),
+                            genre = c("Action & Adventure"), best_pic_nom = c("no"))
+
+## Make predictions based on the movie data above
+rogue_one_predictions <- predict(score_mod_24, rogue_one)
+batman_vs_superman_predictions <- predict(score_mod_24, batman_vs_superman)
+xmen_apocalypse_predictions <- predict(score_mod_24, xmen_apocalypse)
+
+## View the predicted values
+rogue_one_predictions 
+batman_vs_superman_predictions
+xmen_apocalypse_predictions
+```
+
+
+* * *
+
+## Part 6: Conclusion
+Utilizing data acquired from other movies released in 2016 not in the dataset,
+the model appears to do a decent job of predicting the audience score. It is, however
+not a perfect fit, and appears to be on average, 7-9 points off from the audience
+score on Rotten Tomatoes.
+
+This is not surprising, as the confidence intervals calculated for the 
+coefficients show varying degrees of range among them. Additionally, conditional
+requirements for the independent variables showed some indication of lack of
+linearity, but it didn't appear to be major.
