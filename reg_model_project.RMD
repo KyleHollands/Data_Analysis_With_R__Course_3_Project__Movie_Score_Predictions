@@ -16,6 +16,7 @@ library(ggplot2)
 library(dplyr)
 library(statsr)
 library(leaps)
+library(car)
 ```
 
 ### Load data
@@ -88,6 +89,10 @@ qqline(movies$audience_score)
 summary(movies$critics_rating)
 barplot(table(movies$critics_rating))
 
+# audience_rating
+summary(movies$audience_rating)
+barplot(table(movies$audience_rating))
+
 # critics_score
 summary(movies$critics_score)
 hist(movies$critics_score)
@@ -95,6 +100,22 @@ boxplot(movies$critics_score)
 scatter.smooth(movies$critics_score)
 qqnorm(movies$critics_score)
 qqline(movies$critics_score)
+
+# imdb_rating
+summary(movies$imdb_rating)
+hist(movies$imdb_rating)
+boxplot(movies$imdb_rating)
+scatter.smooth(movies$imdb_rating)
+qqnorm(movies$imdb_rating)
+qqline(movies$imdb_rating)
+
+# imdb_num_votes
+summary(movies$imdb_num_votes)
+hist(movies$imdb_num_votes)
+boxplot(movies$imdb_num_votes)
+scatter.smooth(movies$imdb_num_votes)
+qqnorm(movies$imdb_num_votes)
+qqline(movies$imdb_num_votes)
 
 # genre
 summary(movies$genre)
@@ -141,7 +162,7 @@ barplot(table(movies$top200_box))
 ### Data Manipulation and Cleaning
 ```{r}
 # Keep columns for analysis
-movies_trimmed <- movies[, c("audience_score","genre", "runtime","mpaa_rating","title_type", "critics_rating","critics_score","best_pic_nom","best_pic_win","best_actor_win","best_actress_win","best_dir_win","top200_box")]
+movies_trimmed <- movies[, c("audience_score","genre", "runtime","mpaa_rating","title_type","critics_score","best_pic_nom","best_pic_win","best_actor_win","best_actress_win","best_dir_win","top200_box","imdb_rating")]
 
 # Check rows with N/A's and remove if feasible
 num_rows_with_na <- sum(is.na(movies_trimmed))
@@ -152,6 +173,94 @@ movies_cleaned <- na.omit(movies_trimmed)
 # Analyze cleaned data
 str(movies_cleaned)
 ```
+
+* * *
+
+## Part 4: Modeling
+
+### Backwards Elimination - P-Value
+
+```{r}
+## Multiple Linear Regression Model
+
+# Full model
+score_full = lm(audience_score ~ critics_score + title_type + genre
+                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + 
+                  best_actress_win + best_dir_win + top200_box + imdb_rating, data = movies_cleaned)
+summary(score_full)
+
+# Model - mpaa_rating
+score_mod_1 = lm(audience_score ~ critics_score + title_type + genre
+                + runtime + best_pic_nom + best_pic_win + best_actor_win + 
+                  best_actress_win + best_dir_win + top200_box + imdb_rating, data = movies_cleaned)
+summary(score_mod_1)
+
+# Model - best_pic_win
+score_mod_2 = lm(audience_score ~ critics_score + title_type + genre
+                + runtime + best_pic_nom + best_actor_win + 
+                  best_actress_win + best_dir_win + top200_box + imdb_rating, data = movies_cleaned)
+summary(score_mod_2)
+
+# Model - title_type
+score_mod_3 = lm(audience_score ~ critics_score + genre
+                + runtime + best_pic_nom + best_actor_win + 
+                  best_actress_win + best_dir_win + top200_box + imdb_rating, data = movies_cleaned)
+summary(score_mod_3)
+
+# Model - best_dir_win
+score_mod_4 = lm(audience_score ~ critics_score + genre
+                + runtime + best_pic_nom + best_actor_win + 
+                  best_actress_win + top200_box + imdb_rating, data = movies_cleaned)
+summary(score_mod_4)
+
+# Model - top200_box
+score_mod_5 = lm(audience_score ~ critics_score + genre
+                + runtime + best_pic_nom + best_actor_win + 
+                  best_actress_win + imdb_rating, data = movies_cleaned)
+summary(score_mod_5)
+
+# Model - best_actor_win
+score_mod_6 = lm(audience_score ~ critics_score + genre
+                + runtime + best_pic_nom + 
+                  best_actress_win + imdb_rating, data = movies_cleaned)
+summary(score_mod_6)
+
+# Model - best_actress_win
+score_mod_7 = lm(audience_score ~ critics_score + genre
+                + runtime + best_pic_nom + 
+                  imdb_rating, data = movies_cleaned)
+summary(score_mod_7)
+
+
+# Model - best_pic_nom
+score_mod_8 = lm(audience_score ~ critics_score + genre
+                + runtime +  
+                  imdb_rating, data = movies_cleaned)
+summary(score_mod_8)
+
+# Final Model
+score_full = lm(audience_score ~ critics_score + genre
+                + runtime +  
+                  imdb_rating, data = movies_cleaned)
+summary(score_full)
+```
+
+### Assess Collinearity of Predictor Variables in the Final Model
+The adjusted GVIF taking into account the DF indicates a relatively low indication
+of collinearity between predictor (independent) variables.
+However, the unadjusted GVIF is approaching the threshold of acceptable level of
+collinearity (5-10). 
+
+```{r}
+## Correlation matrix could not be used due to the presence of categorical variables
+
+# Calculate VIF for the predictors in the model
+vif_values <- vif(score_full)
+
+# Print the VIF values
+print(vif_values)
+```
+
 ### Conditions
 
 #### (1) linear relationships between (numerical) x and y
@@ -165,9 +274,6 @@ that are also in the model, and not just the bivariate relationship between a
 given x and y.
 
 ```{r}
-score_full = lm(audience_score ~ critics_rating + critics_score + title_type + genre
-                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win + top200_box, data = movies_cleaned)
-
 plot(score_full$residuals ~ movies_cleaned$critics_rating)
 plot(score_full$residuals ~ movies_cleaned$critics_score)
 plot(score_full$residuals ~ movies_cleaned$title_type)
@@ -180,7 +286,7 @@ plot(score_full$residuals ~ movies_cleaned$best_actor_win)
 plot(score_full$residuals ~ movies_cleaned$best_actress_win)
 plot(score_full$residuals ~ movies_cleaned$best_dir_win)
 plot(score_full$residuals ~ movies_cleaned$top200_box)
-
+plot(score_full$residuals ~ movies_cleaned$imdb_rating)
 ```
 
 #### (2) nearly normal residuals with mean 0
@@ -229,89 +335,13 @@ collection
 plot(score_full$residuals)
 ```
 
-
-* * *
-
-## Part 4: Modeling
-
-### Backwards Elimination - P-Value
-
-```{r}
-## Multiple Linear Regression Model
-
-# Full model
-score_full = lm(audience_score ~ critics_rating + critics_score + title_type + genre
-                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win + top200_box, data = movies)
-summary(score_full)
-
-# Model - best_dir_win
-score_mod_17 = lm(audience_score ~ critics_rating + critics_score + title_type + genre
-                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + top200_box, data = movies)
-summary(score_mod_17)
-
-# Model - title_type
-score_mod_18 = lm(audience_score ~ critics_rating + critics_score + genre
-                + runtime + mpaa_rating + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + top200_box, data = movies)
-summary(score_mod_18)
-
-# Model - best_pic_win
-score_mod_19 = lm(audience_score ~ critics_rating + critics_score + genre
-                + runtime + mpaa_rating + best_pic_nom + best_actor_win + best_actress_win + top200_box, data = movies)
-summary(score_mod_19)
-
-# Model - mpaa_rating
-score_mod_20 = lm(audience_score ~ critics_rating + critics_score + genre
-                + runtime + best_pic_nom + best_actor_win + best_actress_win + top200_box, data = movies)
-summary(score_mod_20)
-
-# Model - top200_box
-score_mod_21 = lm(audience_score ~ critics_rating + critics_score + genre
-                + runtime + best_pic_nom + best_actor_win + best_actress_win, data = movies)
-summary(score_mod_21)
-
-# Model - best_actor_win
-score_mod_22 = lm(audience_score ~ critics_rating + critics_score + genre
-                + runtime + best_pic_nom + best_actress_win, data = movies)
-summary(score_mod_22)
-
-# Model - best_actress_win
-score_mod_23 = lm(audience_score ~ critics_rating + critics_score + genre
-                + runtime + best_pic_nom, data = movies)
-summary(score_mod_23)
-
-# Model - runtime *********************
-score_mod_24 = lm(audience_score ~ critics_rating + critics_score + genre
-                + best_pic_nom, data = movies)
-summary(score_mod_24)
-
-# Final Model
-score_mod_24 = lm(audience_score ~ critics_rating + critics_score + genre
-                + best_pic_nom, data = movies)
-summary(score_mod_24)
-```
-### Assess Collinearity of Predictor Variables in the Final Model
-The adjusted GVIF taking into account the DF indicates a relatively low indication
-of collinearity between predictor (independent) variables.
-However, the unadjusted GVIF is approaching the threshold of acceptable level of
-collinearity (5-10). 
-
-```{r}
-## Correlation matrix could not be used due to the presence of categorical variables
-
-# Calculate VIF for the predictors in the model
-vif_values <- vif(score_mod_24)
-
-# Print the VIF values
-print(vif_values)
-```
-
 * * *
 
 ## Part 5: Prediction
 
 ```{r}
 # Calculate confidence intervals for the coefficients
-conf_intervals <- confint(score_mod_24)
+conf_intervals <- confint(score_full)
 
 # View the confidence intervals
 conf_intervals
@@ -325,26 +355,26 @@ matching_rows <- movies[grepl("", movies$title, ignore.case = TRUE), ]
 matching_rows
 
 # Final Model
-score_mod_24 = lm(audience_score ~ critics_rating + critics_score + genre
-                + best_pic_nom, data = movies)
-summary(score_mod_24)
+score_full = lm(audience_score ~ critics_score + genre
+                + runtime +  
+                  imdb_rating, data = movies_cleaned)
+summary(score_full)
 
 ## Acquire data from various movies released in 2016
 
 # Data from Rogue One
-rogue_one = data.frame(critics_rating = c("Fresh"), critics_score = c(84),
-                            genre = c("Action & Adventure"), best_pic_nom = c("yes"))
+rogue_one = data.frame(critics_score = c(84), genre = c("Action & Adventure"), runtime = c(134), imdb_rating = c(7.8))
+
 # Data from Batman vs Superman
-batman_vs_superman = data.frame(critics_rating = c("Rotten"), critics_score = c(29),
-                            genre = c("Action & Adventure"), best_pic_nom = c("no"))
+batman_vs_superman = data.frame(critics_score = c(29), genre = c("Action & Adventure"), runtime = c(153), imdb_rating = c(6.4))
+
 # Data from X-Men: Apocalypse
-xmen_apocalypse = data.frame(critics_rating = c("Rotten"), critics_score = c(47),
-                            genre = c("Action & Adventure"), best_pic_nom = c("no"))
+xmen_apocalypse = data.frame(critics_score = c(47), genre = c("Action & Adventure"), runtime = c(143), imdb_rating = c(6.9))
 
 ## Make predictions based on the movie data above
-rogue_one_predictions <- predict(score_mod_24, rogue_one)
-batman_vs_superman_predictions <- predict(score_mod_24, batman_vs_superman)
-xmen_apocalypse_predictions <- predict(score_mod_24, xmen_apocalypse)
+rogue_one_predictions <- predict(score_full, rogue_one)
+batman_vs_superman_predictions <- predict(score_full, batman_vs_superman)
+xmen_apocalypse_predictions <- predict(score_full, xmen_apocalypse)
 
 ## View the predicted values
 rogue_one_predictions 
@@ -357,11 +387,8 @@ xmen_apocalypse_predictions
 
 ## Part 6: Conclusion
 Utilizing data acquired from other movies released in 2016 not in the dataset,
-the model appears to do a decent job of predicting the audience score. It is, however
-not a perfect fit, and appears to be on average, 7-9 points off from the audience
-score on Rotten Tomatoes.
-
-This is not surprising, as the confidence intervals calculated for the 
-coefficients show varying degrees of range among them. Additionally, conditional
-requirements for the independent variables showed some indication of lack of
-linearity, but it didn't appear to be major.
+the model appears to do a decent job of predicting the audience score. After improving
+the model with another iteration, the model can now predict Rotten Tomatoes audience
+scores within a smaller confidence interval. However, the improved model may
+violate the constant variance requirement. Another improvement to the model can be made,
+such as identifying if any other variables can be removed/added.
