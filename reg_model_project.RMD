@@ -239,23 +239,26 @@ score_mod_8 = lm(audience_score ~ critics_score + genre
 summary(score_mod_8)
 
 # Final Model
-score_full = lm(audience_score ~ critics_score + genre
+score_final = lm(audience_score ~ critics_score + genre
                 + runtime +  
                   imdb_rating, data = movies_cleaned)
-summary(score_full)
+summary(score_final)
 ```
 
 ### Assess Collinearity of Predictor Variables in the Final Model
 The adjusted GVIF taking into account the DF indicates a relatively low indication
 of collinearity between predictor (independent) variables.
-However, the unadjusted GVIF is approaching the threshold of acceptable level of
-collinearity (5-10). 
+The GVID and adjusted GVIF are relatively low, and fall below the acceptable
+threshold of 5. 
+
+Another method would have been to use a correlation matrix, however, it only works with numerical
+predictor variables.
 
 ```{r}
 ## Correlation matrix could not be used due to the presence of categorical variables
 
 # Calculate VIF for the predictors in the model
-vif_values <- vif(score_full)
+vif_values <- vif(score_final)
 
 # Print the VIF values
 print(vif_values)
