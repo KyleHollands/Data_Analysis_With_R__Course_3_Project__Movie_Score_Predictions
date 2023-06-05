@@ -344,7 +344,7 @@ plot(score_full$residuals)
 
 ```{r}
 # Calculate confidence intervals for the coefficients
-conf_intervals <- confint(score_full)
+conf_intervals <- confint(score_final)
 
 # View the confidence intervals
 conf_intervals
@@ -358,10 +358,10 @@ matching_rows <- movies[grepl("", movies$title, ignore.case = TRUE), ]
 matching_rows
 
 # Final Model
-score_full = lm(audience_score ~ critics_score + genre
+score_final = lm(audience_score ~ critics_score + genre
                 + runtime +  
                   imdb_rating, data = movies_cleaned)
-summary(score_full)
+summary(score_final)
 
 ## Acquire data from various movies released in 2016
 
@@ -375,9 +375,9 @@ batman_vs_superman = data.frame(critics_score = c(29), genre = c("Action & Adven
 xmen_apocalypse = data.frame(critics_score = c(47), genre = c("Action & Adventure"), runtime = c(143), imdb_rating = c(6.9))
 
 ## Make predictions based on the movie data above
-rogue_one_predictions <- predict(score_full, rogue_one)
-batman_vs_superman_predictions <- predict(score_full, batman_vs_superman)
-xmen_apocalypse_predictions <- predict(score_full, xmen_apocalypse)
+rogue_one_predictions <- predict(score_final, rogue_one)
+batman_vs_superman_predictions <- predict(score_final, batman_vs_superman)
+xmen_apocalypse_predictions <- predict(score_final, xmen_apocalypse)
 
 ## View the predicted values
 rogue_one_predictions 
